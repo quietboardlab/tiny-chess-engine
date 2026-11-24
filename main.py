@@ -1,4 +1,4 @@
-import sys;I=10**9;V=dict(zip('PNBRQK',(100,320,330,500,950,0)));S={'P':"PPPPPPPPUZZ<<ZZUUKFPPFKUPPPddPPPPPdnndPPPZdxxdZPP}}}}}}}PPPPPPPP",'N':"#-2222-#-<PUUP<-2UZ__ZU22P_dd_P22U_dd_U22PZ__ZP2-<PPPP<-#-2222-#"};KN=[(1,2),(2,1),(-1,2),(-2,1),(1,-2),(2,-1),(-1,-2),(-2,-1)];D8=[(1,0),(-1,0),(0,1),(0,-1),(1,1),(1,-1),(-1,1),(-1,-1)]
+I=10**9;V=dict(zip('PNBRQK',(100,320,330,500,900,0)));S={'P':"PPPPPPPPUZZ<<ZZUUKFPPFKUPPPddPPPPPdnndPPPZdxxdZPP}}}}}}}PPPPPPPP",'N':"#-2222-#-<PUUP<-2UZ__ZU22P_dd_P22U_dd_U22PZ__ZP2-<PPPP<-#-2222-#",'K':"nxdZZdxnddZPPZddF<<22<<F<22((22<2((((((22((((((2<22((22<<2<FF<2<"};KN=[(1,2),(2,1),(-1,2),(-2,1),(1,-2),(2,-1),(-1,-2),(-2,-1)];D8=[(1,0),(-1,0),(0,1),(0,-1),(1,1),(1,-1),(-1,1),(-1,-1)]
 class P:
  def __init__(s):s.b=['.']*64;s.w=1;s.ep=-1
  def fen(s,f):
@@ -20,7 +20,7 @@ class P:
    while 0<=nx<8 and 0<=ny<8:
     p=b[ny*8+nx]
     if p!='.':
-     if p.isupper()==by and(p.upper()=='Q'or p.upper()=='B'and dx and dy or p.upper()=='R'and not(dx and dy)):return 1
+     if p.isupper()==by and(p.upper()in'BQ'and dx and dy or p.upper()in'RQ'and not(dx and dy)):return 1
      break
     nx+=dx;ny+=dy
   return 0
@@ -76,39 +76,39 @@ def ev(s):
 nd=0
 def sr(s,d,a,be):
  global nd;nd+=1
- if nd>12000:return ev(s)
- ms=s.legal()
- if not ms:return-I if s.atk(s.b.index('K'if s.w else'k'),not s.w)else 0
+ if nd>15000:return ev(s)
+ ms=s.legal();k=s.b.index('K'if s.w else'k')
+ if not ms:return-I if s.atk(k,not s.w)else 0
  if d<=0:
   st=ev(s)
   if st>=be:return be
-  a=max(a,st);ms=[m for m in ms if s.b[m[1]]!='.'or m[1]==s.ep]
+  a=max(a,st)
+  if not s.atk(k,not s.w):ms=[m for m in ms if s.b[m[1]]!='.'or m[1]==s.ep or m[2]]
   if not ms:return a
- best=-I
- for m in sorted(ms,key=lambda m:-V[s.b[m[1]].upper()]if s.b[m[1]]!='.'else 0):
+ best=[-I,a][d<=0]
+ for m in sorted(ms,key=lambda m:-V.get(s.b[m[1]].upper(),0)):
   u=s.make(m);sc=-sr(s,d-1,-be,-a);s.unmake(m,u);best=max(best,sc);a=max(a,sc)
   if a>=be:break
  return best
 def best(s):
- global nd;nd=0;bs=-I
- for m in s.legal():
-  u=s.make(m);sc=-sr(s,2,-I,I);s.unmake(m,u)
-  if sc>bs:bs,bm=sc,m
- return bm
-def um(m):return chr(97+(m[0]&7))+str(m[0]//8+1)+chr(97+(m[1]&7))+str(m[1]//8+1)+(m[2].lower()if m[2]else'')
-F=lambda x:(int(x[1])-1)*8+ord(x[0])-97
-def pm(x):return(F(x),F(x[2:]),x[4].upper()if len(x)>4 else'')
-def main():
- s=P();st="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";s.fen(st)
- for line in sys.stdin:
-  t=line.split()
-  if not t:continue
-  c=t[0]
-  if c=='isready':print('readyok')
-  elif c=='uci':print('uciok')
-  elif c=='position':
-   s.fen(' '.join(t[2:8])if'fen'in t else st)
-   if 'moves'in t:
-    for x in t[t.index('moves')+1:]:s.make(pm(x))
-  elif c=='go':print("bestmove "+um(best(s)))
-main()
+ global nd;nd=0;ms=s.legal();rs={}
+ for d in 1,2:
+  a=-I
+  for m in sorted(ms,key=lambda m:-rs.get(m,0)):
+   if d>1 and nd>13000:break
+   u=s.make(m);v=-sr(s,d,-I,I);s.unmake(m,u)
+   if v>a:a=v
+   if nd<15000:rs[m]=v
+ return max(ms,key=lambda m:rs.get(m,-I))
+def um(m):return'%c%d%c%d%s'%(97+(m[0]&7),m[0]//8+1,97+(m[1]&7),m[1]//8+1,m[2].lower())
+import json,os,urllib.request as R
+U=os.getenv('MAKEFUN_ENV_URL')
+def post(p,b):
+ q=R.Request(U+p,data=json.dumps(b).encode())
+ return json.load(R.urlopen(q))
+s=P()
+while 1:
+ g=post('/game',{})
+ if g['status']=='done':break
+ while g['status']=='your_move':
+  s.fen(g['fen']);m=um(best(s));g=post('/move',{'game':g['game'],'move':m})
